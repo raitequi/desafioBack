@@ -24,7 +24,6 @@ const formatarReqErro = (ctx, mensagem, status=404) => {
 }
 
 
-
 const produto = {
     id: 1,
     nome: 'Monitor 22"',
@@ -35,15 +34,20 @@ const produto = {
 
 const estoque = {
     idProduto: 1,
-    quantidade: produto[idProduto].quantidade
+    quantidade: produto.id.quantidade
 }
 
 const pedido = {
     id: 1,
-    produtos: [produto.id, produto.nome, produto.quantidade, produto.valor],
-    estado: incompleto,
+    produtos: [{
+        id: 1,
+        nome: 'Monitor 22"',
+        quantidade: 1,
+        valor: 50000
+    }],
+    estado: 'incompleto',
     idCliente: 1,
-    valorTotal: produto.valor,
+    valorTotal: 0, //resultadoFuncao
     deletado: false
 }
 
@@ -106,12 +110,6 @@ const atualizarProduto = (ctx) => {
     }
 }
 
-// const obterPostsDoAutor = (autorId) => {
-//     const postsDoAutor = listaPosts.filter((post) => {
-//         return post.autor == autorId && post.deletado === false
-//     })
-//     return postsDoAutor
-// }
 
 const deletarProduto = (ctx) => {
     const id = ctx.url.split('/')[2]
@@ -135,7 +133,7 @@ const deletarProduto = (ctx) => {
                 valor: produtoAtual.valor,
                 deletado: body.estado
             }
-            listaAutores[id -1] = produtoAtualizado
+            listaProdutos[id -1] = produtoAtualizado
             return produtoAtualizado
         }
     }
@@ -161,17 +159,13 @@ const obterPedidosCancelados = () => {
     return listaPedidos.filter((pedido) => pedido.estado === 'cancelado')
 }
 
-const obterPedidosPorID = () => {
-    return listaPedidos.filter((pedido) => pedido.id) // === como pegar o que o usuário digitar?
-}
 
-
-const addProdutoAoPedido = (ctx) => {
+const addPedido = (ctx) => {
     const body = ctx.request.body
 
     if (!body.produtos || !body.estado || !body.valorTotal || !body.idCliente) {
         formatarReqErro(ctx, 'Pedido mal-formatado!!', 400)
-        return
+        //return
     } else if (listaProdutos[body.idCliente -1].deletado === true) {
         formatarReqErro(ctx, 'Ação proibida', 403)
         return
@@ -185,7 +179,7 @@ const addProdutoAoPedido = (ctx) => {
         deletado: false
     }
 
-    listaPedidos.unshift(pedido) //push seria o normal, unshift coloca em ordem do mais recente
+    listaPedidos.push(pedido)
     return pedido
 }
 
@@ -249,7 +243,7 @@ const rotasProdutos = (ctx, diretorio) => {
                 if (listaProdutos[id -1]) {
                     formatarReqSucesso(ctx, listaProdutos[id -1])
                 } else {
-                    formatarReqErro(ctx, 'Autor não encontrado!!', 404)
+                    formatarReqErro(ctx, 'Produto não encontrado!!', 404)
                 }
             } else {
                 formatarReqSucesso(ctx, obterProdutos())
@@ -258,19 +252,19 @@ const rotasProdutos = (ctx, diretorio) => {
         case 'POST':
             const produtoAdicionado = addProduto(ctx)
             if (produtoAdicionado) {
-                formatarReqSucesso(ctx, autor, 201)
+                formatarReqSucesso(ctx, produto, 201)
             }
             break
         case 'PUT':
             const produtoAtualizado = atualizarProduto(ctx)
             if (produtoAtualizado) {
-                formatarReqSucesso(ctx, autor, 200)
+                formatarReqSucesso(ctx, produto, 200)
             }
             break            
         case 'DELETE':
             const produtoDeletado = deletarProduto(ctx)
             if (produtoDeletado) {
-                formatarReqSucesso(ctx, { mensagem: "Autor deletado!" }, 200)
+                formatarReqSucesso(ctx, { mensagem: "Produto deletado!" }, 200)
             }
             break
         default:
@@ -287,16 +281,16 @@ const rotasProdutos = (ctx, diretorio) => {
                 if (listaPedidos[id -1]) {
                     formatarReqSucesso(ctx, listaPedidos[id -1])
                 } else {
-                    formatarReqErro(ctx, 'Post não encontrado!!', 404)
+                    formatarReqErro(ctx, 'Pedido não encontrado!!', 404)
                 }
             } else {
                 formatarReqSucesso(ctx, obterPedidos())
             }
             break
         case 'POST':
-            const postAdicionado = addProdutoAoPedido(ctx)
-            if (postAdicionado) {
-                formatarReqSucesso(ctx, post, 201)
+            const pedidoAdicionado = addPedido(ctx)
+            if (pedidoAdicionado) {
+                formatarReqSucesso(ctx, pedidoAdicionado, 201)
             }
             break
         case 'PUT':
@@ -316,6 +310,7 @@ const rotasProdutos = (ctx, diretorio) => {
             break;
     }
  }
+
 const rotas = (ctx) => {
     const diretorio = ctx.url.split("/")
 
@@ -323,10 +318,76 @@ const rotas = (ctx) => {
         rotasProdutos(ctx, diretorio)
     } else if (diretorio[1] === 'orders') {
         rotasPedidos(ctx, diretorio)
+        rotasStatus(ctx, diretorio) //aqui <==========================
     } else {
        formatarReqErro(ctx, 'Conteúdo não encontrado!!', 404)
     }
 }
+
+const rotasStatus = (ctx) => {
+    const diretorio = ctx.url.split("/")
+
+    if (diretorio[1] === 'orders') {
+        if (diretorio[2] === 'entregues') {
+            rotaStatusEntregue(ctx, diretorio)
+        }
+        if (diretorio[2] === 'pagos') {
+            rotaStatusPago(ctx, diretorio)
+        }
+        if (diretorio[2] === 'processando') {
+            rotaStatusProcessando(ctx, diretorio)
+        }
+        if (diretorio[2] === 'cancelados') {
+            rotaStatusCancelado(ctx, diretorio)
+        }
+    } else {
+       formatarReqErro(ctx, 'Conteúdo não encontrado!!', 404)
+    }
+}
+
+const rotaStatusEntregue = (ctx) => {
+    switch (ctx.method) {
+        case 'GET':
+            formatarReqSucesso(ctx, obterPedidosEntregues())
+            break
+        default:
+            formatarReqErro(ctx, "Método não permitido!!!", 405)
+            break;
+    }
+}  
+
+const rotaStatusPago = (ctx) => {
+    switch (ctx.method) {
+        case 'GET':
+            formatarReqSucesso(ctx, obterPedidosPagos())
+            break
+        default:
+            formatarReqErro(ctx, "Método não permitido!!!", 405)
+            break;
+    }
+}  
+
+const rotaStatusProcessando = (ctx) => {
+    switch (ctx.method) {
+        case 'GET':
+            formatarReqSucesso(ctx, obterPedidosProcessando())
+            break
+        default:
+            formatarReqErro(ctx, "Método não permitido!!!", 405)
+            break;
+    }
+}  
+
+const rotaStatusCancelado = (ctx) => {
+    switch (ctx.method) {
+        case 'GET':
+            formatarReqSucesso(ctx, obterPedidosCancelados())
+            break
+        default:
+            formatarReqErro(ctx, "Método não permitido!!!", 405)
+            break;
+    }
+}  
 
 server.use((ctx) => {
     rotas(ctx)
