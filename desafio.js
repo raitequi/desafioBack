@@ -61,10 +61,6 @@ const obterProdutos = () => {
     return listaProdutos.filter((produto) => !produto.deletado && produto.quantidade > 0)
 }
 
-const obterProdutoParticular = () => {
-    return listaProdutos.filter((produto) => produto.id == undefined) //retornar id do produto que o usuário digitar?
-}
-
 const addProduto = (ctx) => {
     const body = ctx.request.body
 
@@ -137,6 +133,35 @@ const deletarProduto = (ctx) => {
             return produtoAtualizado
         }
     }
+}
+
+const adicionarProdutoNoPedido = (ctx, produto, id_pedido) => {
+    const produtoAtual = listaProdutos[produto.id -1]
+    if (produtoAtual) {
+        if (produtoAtual.quantidade >= produto.quantidade) {
+            listaProdutos[produto.id - 1].quantidade -= produto.quantidade
+            const pedidoAtual = pedidos(id_pedido - 1)
+            if (pedidoAtual) {
+                const produtoJaExiste = pedidoAtual.listaProdutos.filter(product => product.id === produto.id)
+                if (produtoJaExiste) {
+                    for(i=0; i < pedidoAtual.produtos;i++) {
+                        if (pedidoAtual.produtos[i].id === produto.id) {
+                            pedidoAtual.splice(i, 1, {
+                            nome: produto.nome,
+                            id: produto.id,
+                            quantidade: pedidoAtual.produtos[i].quantidade + produto.quantidade
+                        })
+                    }
+                }
+            }
+            } else {
+                pedidoAtual.listaProdutos.push(produto)
+            } 
+        }
+    }
+    pedidoAtual.valor_total += produto.valor * produto.quantidade
+    listaPedidos[pedidoAtual.id - 1] = pedidoAtual
+    return pedidoAtual
 }
 
 const obterPedidos = () => {
@@ -295,8 +320,11 @@ const rotasProdutos = (ctx, diretorio) => {
             break
         case 'PUT':
             const pedidoAtualizado = atualizarPedido(ctx)
+            const produtoAoPedido = adicionarProdutoNoPedido(ctx) //<==============
             if (pedidoAtualizado) {
                 formatarReqSucesso(ctx, pedidoAtualizado, 200)
+            } else if (produtoAoPedido) {
+                formatarReqSucesso(ctx, produtoAoPedido, 200)
             }
             break            
         case 'DELETE':
